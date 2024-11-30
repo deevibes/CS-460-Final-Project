@@ -1,110 +1,83 @@
-// Get the canvas element
-const canvas = document.getElementById('renderCanvas');
+// Import Three.js modules (ES6 imports)
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-// Generate the Babylon.js 3D engine
-const engine = new BABYLON.Engine(canvas, true);
+// Initialize Scene, Camera, and Renderer
+const canvas = document.getElementById("renderCanvas"); // Match your canvas element ID
+const renderer = new THREE.WebGLRenderer({ canvas });
+renderer.setSize(window.innerWidth, window.innerHeight);
 
-// Create the scene
-const createScene = async () => {
-  const scene = new BABYLON.Scene(engine);
-  
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202040);
 
-  // Wait for Ammo.js to be ready
-  await Ammo();
+// Camera
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  100
+);
+camera.position.set(0, 10, 30);
 
-  // Enable physics
-  scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.AmmoJSPlugin());
+// Orbit Controls
+const controls = new OrbitControls(camera, renderer.domElement);
 
-  // Create a basic camera and light
-  const camera = new BABYLON.UniversalCamera('camera', new BABYLON.Vector3(0, 1.6, -5), scene);
-  camera.attachControl(canvas, true);
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
 
-  const light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
-  // Create a ground plane
-   const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 10, height: 10 }, scene);
-   ground.position.y = 0;
-   ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, {mass: 0, restitution: 0.5, friction: 0.5}, scene);
-  
-  // Load the basketball model 
-  BABYLON.SceneLoader.ImportMesh(
-    '',
-    'assets/basketball.glb',
-    scene,
-    function (meshes) {
-        const basketball = meshes[0];
-        basketball.name = 'basketball'
-        basketball.scaling.scaleInPlace(0.24); // Adjust the scale if necessary
-        basketball.position = new BABYLON.Vector3(0, 1.6, -1);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+directionalLight.position.set(10, 20, 10);
+scene.add(directionalLight);
 
-        // Assign physics impostor to the basketball
-        basketball.physicsImpostor = new BABYLON.PhysicsImpostor(basketball,
-            BABYLON.PhysicsImpostor.SphereImposter,
-            { mass: 0.624, restitution: 0.6, friction: 0.5 },
-            scene
-            );
-        }
-    );
-    // Load the hoop model
-    BABYLON.SceneLoader.ImportMesh(
-    '',
-    'assets/',
-    'hoop.glb',
-    scene,
-    function (meshes) {
-      const hoop = meshes[0];
-      hoop.name = 'hoop';
-      hoop.scaling.scaleInPlace(.15); // Adjust the scale if necessary
-      hoop.position = new BABYLON.Vector3(0, 3, 5);
-  
-      // Assign physics impostor to the hoop
-      hoop.physicsImpostor = new BABYLON.PhysicsImpostor(
-        hoop,
-        BABYLON.PhysicsImpostor.MeshImpostor,
-        { mass: 0, restitution: 0.5, friction: 0.5 },
-        scene
-      );
-    }
-  );
-  // Create a simplified rim using a torus
-  const rim = BABYLON.MeshBuilder.CreateTorus('rim', { diameter: 0.45, thickness: 0.02 }, scene);
-  rim.position = new BABYLON.Vector3(0, 3, 5);
-  rim.rotation = new BABYLON.Vector3(Math.PI / 2, 0, 0);
+// Basketball Court
+const courtTexture = new THREE.TextureLoader().load("./assets/court.png");
+const courtMaterial = new THREE.MeshStandardMaterial({ map: courtTexture });
+const courtGeometry = new THREE.PlaneGeometry(28, 15);
+const court = new THREE.Mesh(courtGeometry, courtMaterial);
+court.rotation.x = -Math.PI / 2; // Lay flat
+scene.add(court);
 
-  // Assign physics impostor
-  rim.physicsImpostor = new BABYLON.PhysicsImpostor(
-    rim,
-    BABYLON.PhysicsImpostor.MeshImpostor,
-    { mass: 0, restitution: 0.5, friction: 0.5 },
-    scene
-  );
-  // Assuming backboard is a separate mesh
-const backboard = BABYLON.MeshBuilder.CreateBox('backboard', { width: 1.8, height: 1.05, depth: 0.02 }, scene);
-backboard.position = new BABYLON.Vector3(0, 3.7, 4.9);
-
-  // Assign physics impostor
-  backboard.physicsImpostor = new BABYLON.PhysicsImpostor(
-    backboard,
-    BABYLON.PhysicsImpostor.BoxImpostor,
-    { mass: 0, restitution: 0.5, friction: 0.5 },
-    scene
-  );
-
-  
-  // Return the created scene
-  return scene;
-};
-
-// Call the createScene function
-const scenePromise = createScene();
-
-// Register a render loop to repeatedly render the scene
-engine.runRenderLoop(() => {
-  scenePromise.then(scene => {
-    scene.render();
-  });
+// Hoop
+const loader = new GLTFLoader();
+loader.load("./assets/hoop.glb", (gltf) => {
+  const hoop = gltf.scene;
+  hoop.scale.set(1.5, 1.5, 1.5);
+  hoop.position.set(0, 3.05, 11);
+  hoop.rotation.y = Math.PI; // Face correct direction
+  scene.add(hoop);
 });
 
-// Resize the engine when the window is resized
-window.addEventListener('resize', function () {
-  engine.resize();
+// Basketball
+loader.load("./assets/basketball.glb", (gltf) => {
+  const basketball = gltf.scene;
+  basketball.scale.set(0.6, 0.6, 0.6);
+  basketball.position.set(0, 1.6, -4.6);
+  scene.add(basketball);
 });
+
+// Ground Plane (optional for environment)
+const groundTexture = new THREE.TextureLoader().load("./assets/floor1.png");
+const groundMaterial = new THREE.MeshStandardMaterial({ map: groundTexture });
+const groundGeometry = new THREE.PlaneGeometry(50, 50);
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.01; // Slightly below the court
+scene.add(ground);
+
+// Window Resize Handling
+window.addEventListener("resize", () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// Animate the Scene
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+animate();
